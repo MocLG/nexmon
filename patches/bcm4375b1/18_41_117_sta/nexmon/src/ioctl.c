@@ -329,6 +329,21 @@ wlc_ioctl_hook(struct wlc_info *wlc, int cmd, char *arg, int len, void *wlc_if)
 
                 set_chanspec(wlc_for_chanspec, chanspec);
                 ret = IOCTL_SUCCESS;
+            } else if (len >= 8 && !strncmp(arg, "monpass", 7)) {
+                unsigned int val = *(unsigned int *)(arg + 8);
+                unsigned short chanspec = get_chanspec(wlc);
+                struct wlc_info *wlc_for_chanspec = (struct wlc_info *)
+                    find_wlc_for_chanspec(wlc, 0, chanspec, 0, 0);
+
+                if (!wlc_for_chanspec) {
+                    wlc_for_chanspec = wlc;
+                }
+
+                wlc_for_chanspec->pub->tunables->copycount =
+                    (val > 0) ? 2 : 17;
+                path_to_wl_set_monitor(wlc_for_chanspec, val);
+                wlc_for_chanspec->monitor = val;
+                ret = IOCTL_SUCCESS;
             } else {
                 ret = wlc_ioctl_orig(wlc, WLC_SET_VAR, arg, len, wlc_if);
             }

@@ -112,6 +112,8 @@ char            *custom_cmd_value = NULL;
 unsigned char   get_chanspec = 0;
 unsigned char   set_chanspec = 0;
 char            *set_chanspec_value = NULL;
+unsigned char   set_monpass = 0;
+unsigned int    set_monpass_value = 0;
 unsigned char   custom_cmd_value_int = false;
 unsigned char   custom_cmd_value_base64 = false;
 unsigned char   raw_output = false;
@@ -148,6 +150,7 @@ static struct argp_option options[] = {
     {"use-udp-tunneling", 'X', "INT", 0, "Use UDP tunneling with security cookie INT"},
     {"broadcast-ip", 'B', "CHAR", 0, "Broadcast IP to use for UDP tunneling (default: 192.168.222.255)"},
     {"revinfo", 'V', 0, 0, "Dump revision information of the Wi-Fi chip"},
+    {"monpass", 'M', "INT", 0, "Enable monitor mode without driver interception (value != 0 enables)"},
     { 0 }
 };
 
@@ -279,6 +282,11 @@ parse_opt(int key, char *arg, struct argp_state *state)
             }
             break;
 
+        case 'M':
+            set_monpass = true;
+            set_monpass_value = strtoul(arg, NULL, 0);
+            break;
+
         case 'V':
             revinfo = true;
             break;
@@ -359,6 +367,13 @@ main(int argc, char **argv)
     if (set_monitor) {
         buf = set_monitor_value;
         ret = nex_ioctl(nexio, WLC_SET_MONITOR, &buf, 4, true);
+    }
+
+    if (set_monpass) {
+        char charbuf[12] = "monpass";
+        unsigned int *monpass_val = (unsigned int *) &charbuf[8];
+        *monpass_val = (set_monpass_value > 0) ? 2 : 0;
+        ret = nex_ioctl(nexio, WLC_SET_VAR, charbuf, 12, true);
     }
 
     if (set_promisc) {
