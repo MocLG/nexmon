@@ -1,7 +1,9 @@
-all: libs/armeabi/libssl.a
+APP_ABI ?= armeabi
 
-libs/armeabi/libssl.a: Android.mk
-	$(NDK_ROOT)/ndk-build NDK_APPLICATION_MK=`pwd`/Application.mk NDK_APP_OUT=. TARGET_PLATFORM=android-21
+all: libs/$(APP_ABI)/libssl.a
+
+libs/$(APP_ABI)/libssl.a: Android.mk
+	$(NDK_ROOT)/ndk-build NDK_APPLICATION_MK=`pwd`/Application.mk NDK_APP_OUT=. TARGET_PLATFORM=android-21 APP_ABI=$(APP_ABI)
 
 clean:
 	rm -Rf libs

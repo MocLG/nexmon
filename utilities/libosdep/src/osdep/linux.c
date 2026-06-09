@@ -255,6 +255,8 @@ static char * wiToolsPath(const char * tool)
         char * path /*, *found, *env */;
         int i, nbelems;
         static const char * paths [] = {
+                "/data/local/tmp/nexmon-aircrack",
+                "/data/adb/nexmon/bin",
                 "/sbin",
                 "/usr/sbin",
                 "/usr/local/sbin",

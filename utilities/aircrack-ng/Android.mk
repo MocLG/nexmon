@@ -31,31 +31,37 @@ MY_CFLAGS		:= -g -W -Wall -O3 -DANDROID -D_REVISION=0 -D_FILE_OFFSET_BITS=64 \
 	-I $(LOCAL_PATH)/src -I $(LOCAL_PATH)/src/include -D__int8_t_defined \
 	-fPIC -mandroid -DANDROID -DOS_ANDROID -DLinux -DHAVE_SQLITE
 
+ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
+MY_SIMD_CFLAGS		:=
+else
+MY_SIMD_CFLAGS		:= -mfloat-abi=softfp -mfpu=neon -march=armv7 -DSIMD_CORE
+endif
+
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libssl
-LOCAL_SRC_FILES := $(LOCAL_PATH)/../libssl/local/armeabi/libssl.a
+LOCAL_SRC_FILES := $(LOCAL_PATH)/../libssl/local/$(TARGET_ARCH_ABI)/libssl.a
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/../boringssl/src/include
 include $(PREBUILT_STATIC_LIBRARY)
 
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libcrypto
-LOCAL_SRC_FILES := $(LOCAL_PATH)/../libcrypto/local/armeabi/libcrypto.a
+LOCAL_SRC_FILES := $(LOCAL_PATH)/../libcrypto/local/$(TARGET_ARCH_ABI)/libcrypto.a
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/../boringssl/src/include
 include $(PREBUILT_STATIC_LIBRARY)
 
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libsqlite
-LOCAL_SRC_FILES := $(LOCAL_PATH)/../libsqlite/local/armeabi/libsqlite.a
+LOCAL_SRC_FILES := $(LOCAL_PATH)/../libsqlite/local/$(TARGET_ARCH_ABI)/libsqlite.a
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/../libsqlite
 include $(PREBUILT_STATIC_LIBRARY)
 
 
 include $(CLEAR_VARS)
 LOCAL_MODULE := libosdep
-LOCAL_SRC_FILES := $(LOCAL_PATH)/../libosdep/local/armeabi/libosdep.a
+LOCAL_SRC_FILES := $(LOCAL_PATH)/../libosdep/local/$(TARGET_ARCH_ABI)/libosdep.a
 LOCAL_EXPORT_C_INCLUDES := $(LOCAL_PATH)/../libosdep/src
 include $(PREBUILT_STATIC_LIBRARY)
 
@@ -63,7 +69,7 @@ include $(PREBUILT_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 LOCAL_MODULE		:= aircrack-ng
 LOCAL_SRC_FILES		:= $(MY_OBJS_AC)
-LOCAL_CFLAGS		+= $(MY_CFLAGS) -mfloat-abi=softfp -mfpu=neon -march=armv7 -DSIMD_CORE
+LOCAL_CFLAGS		+= $(MY_CFLAGS) $(MY_SIMD_CFLAGS)
 LOCAL_STATIC_LIBRARIES  += libcrypto libssl libosdep libsqlite
 LOCAL_LDLIBS		+= -landroid
 include $(BUILD_EXECUTABLE)
@@ -223,4 +229,3 @@ LOCAL_CFLAGS		+= $(MY_CFLAGS)
 LOCAL_SRC_FILES		:= $(MY_OBJS_WC)
 LOCAL_STATIC_LIBRARIES  += libosdep libssl libcrypto
 include $(BUILD_EXECUTABLE)
-

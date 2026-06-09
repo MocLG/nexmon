@@ -1,18 +1,20 @@
-all: libs/armeabi/iwconfig libs/armeabi/iwlist libs/armeabi/iwpriv
+APP_ABI ?= armeabi
 
-libs/armeabi/iwconfig: Android.mk
-	$(NDK_ROOT)/ndk-build NDK_APPLICATION_MK=`pwd`/Application.mk NDK_APP_OUT=. TARGET_PLATFORM=android-21
+all: libs/$(APP_ABI)/iwconfig libs/$(APP_ABI)/iwlist libs/$(APP_ABI)/iwpriv
 
-libs/armeabi/iwlist: Android.mk
-	$(NDK_ROOT)/ndk-build NDK_APPLICATION_MK=`pwd`/Application.mk NDK_APP_OUT=. TARGET_PLATFORM=android-21
+libs/$(APP_ABI)/iwconfig: Android.mk
+	$(NDK_ROOT)/ndk-build NDK_APPLICATION_MK=`pwd`/Application.mk NDK_APP_OUT=. TARGET_PLATFORM=android-21 APP_ABI=$(APP_ABI)
 
-libs/armeabi/iwpriv: Android.mk
-	$(NDK_ROOT)/ndk-build NDK_APPLICATION_MK=`pwd`/Application.mk NDK_APP_OUT=. TARGET_PLATFORM=android-21
+libs/$(APP_ABI)/iwlist: Android.mk
+	$(NDK_ROOT)/ndk-build NDK_APPLICATION_MK=`pwd`/Application.mk NDK_APP_OUT=. TARGET_PLATFORM=android-21 APP_ABI=$(APP_ABI)
 
-install: libs/armeabi/iwconfig libs/armeabi/iwlist libs/armeabi/iwpriv
-	adb push libs/armeabi/iwconfig /sdcard/
-	adb push libs/armeabi/iwlist /sdcard/
-	adb push libs/armeabi/iwpriv /sdcard/
+libs/$(APP_ABI)/iwpriv: Android.mk
+	$(NDK_ROOT)/ndk-build NDK_APPLICATION_MK=`pwd`/Application.mk NDK_APP_OUT=. TARGET_PLATFORM=android-21 APP_ABI=$(APP_ABI)
+
+install: libs/$(APP_ABI)/iwconfig libs/$(APP_ABI)/iwlist libs/$(APP_ABI)/iwpriv
+	adb push libs/$(APP_ABI)/iwconfig /sdcard/
+	adb push libs/$(APP_ABI)/iwlist /sdcard/
+	adb push libs/$(APP_ABI)/iwpriv /sdcard/
 	adb shell 'su -c "mount -o rw,remount /system"'
 	adb shell 'su -c "cp /sdcard/iwconfig /system/bin/iwconfig"'
 	adb shell 'su -c "cp /sdcard/iwlist /system/bin/iwlist"'

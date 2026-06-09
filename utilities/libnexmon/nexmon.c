@@ -44,11 +44,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <sys/socket.h>
 #include <linux/if_arp.h>
 #include <linux/sockios.h>
 #include <linux/wireless.h>
 #include <monitormode.h>
+
+typedef uint8_t uint8;
+typedef uint16_t uint16;
+
+#include <bcmwifi_channels.h>
 #include <errno.h>
 #include <net/if.h>
 #include <nexioctls.h>
@@ -105,6 +111,77 @@ static void _libmexmon_init() {
 
     if (! func_sendto)
         func_sendto = (int (*) (int, const void *, size_t, int, const struct sockaddr *, socklen_t)) dlsym (REAL_LIBC, "sendto");
+}
+
+static long long
+iwfreq_to_hz(const struct iw_freq *freq)
+{
+    long long value = freq->m;
+    int exponent = freq->e;
+
+    while (exponent > 0) {
+        value *= 10;
+        exponent--;
+    }
+
+    while (exponent < 0) {
+        value /= 10;
+        exponent++;
+    }
+
+    return value;
+}
+
+static int
+channel_from_iwfreq(const struct iw_freq *freq)
+{
+    int mhz;
+
+    if (freq->e == 0 && freq->m > 0 && freq->m <= MAXCHANNEL)
+        return freq->m;
+
+    mhz = (int) (iwfreq_to_hz(freq) / 1000000);
+    if (mhz == 2484)
+        return 14;
+    if (mhz >= 2412 && mhz <= 2472)
+        return (mhz - 2407) / 5;
+    if (mhz >= 5000 && mhz <= 5900)
+        return (mhz - 5000) / 5;
+    if (mhz >= 5955 && mhz <= 7115)
+        return (mhz - 5950) / 5;
+
+    return -1;
+}
+
+static int
+set_chanspec_channel(int channel)
+{
+    char buf[13] = "chanspec";
+    uint32_t chanspec;
+
+    if (channel <= 0 || channel > MAXCHANNEL)
+        return -EINVAL;
+
+    chanspec = CH20MHZ_CHSPEC(channel);
+    memcpy(&buf[9], &chanspec, sizeof(chanspec));
+
+    return nex_ioctl(nexio, WLC_SET_VAR, buf, sizeof(buf), true);
+}
+
+static int
+get_chanspec_channel(void)
+{
+    char buf[9] = "chanspec";
+    uint16_t chanspec = 0;
+    int ret;
+
+    ret = nex_ioctl(nexio, WLC_GET_VAR, buf, sizeof(buf), false);
+    if (ret < 0)
+        return ret;
+
+    memcpy(&chanspec, buf, sizeof(chanspec));
+
+    return CHSPEC_CHANNEL(chanspec);
 }
 
 int
@@ -177,15 +254,34 @@ ioctl(int fd, request_t request, ...)
 
         case SIOCSIWFREQ: // set channel/frequency (Hz)
             {
-                //if (ret < 0)
-                    //printf("LIBNEXMON: SIOCSIWFREQ not implemented\n");
+                struct iwreq* p_wrq = (struct iwreq*) argp;
+
+                if (!strncmp(p_wrq->ifr_ifrn.ifrn_name, ifname, strlen(ifname))) {
+                    int channel = channel_from_iwfreq(&p_wrq->u.freq);
+
+                    if (channel > 0)
+                        ret = set_chanspec_channel(channel);
+                    else
+                        ret = -EINVAL;
+                }
             }
             break;
 
         case SIOCGIWFREQ: // get channel/frequency (Hz)
             {
-                //if (ret < 0)
-                    //printf("LIBNEXMON: SIOCGIWFREQ not implemented\n");
+                struct iwreq* p_wrq = (struct iwreq*) argp;
+
+                if (!strncmp(p_wrq->ifr_ifrn.ifrn_name, ifname, strlen(ifname))) {
+                    int channel = get_chanspec_channel();
+
+                    if (channel > 0) {
+                        p_wrq->u.freq.m = channel;
+                        p_wrq->u.freq.e = 0;
+                        ret = 0;
+                    } else {
+                        ret = channel;
+                    }
+                }
             }
             break;
     }

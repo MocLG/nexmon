@@ -49,10 +49,14 @@
 #include <argprintf.h>          // allows to execute argprintf to print into the arg buffer
 #include <local_wrapper.h>
 #include <ieee80211_radiotap.h>
+#include <monitormode.h>
 #include <udptunnel.h>
 #include <bcmwifi_channels.h>
 
 #define TXOFF 204
+#define NEXMON_MONITOR_MASK \
+    (MONITOR_IEEE80211 | MONITOR_RADIOTAP | MONITOR_DROP_FRM | \
+     MONITOR_IPV4_UDP | MONITOR_LOG_ONLY)
 
 extern char version[];
 extern char date[];
@@ -266,11 +270,13 @@ wlc_ioctl_hook(struct wlc_info *wlc, int cmd, char *arg, int len, void *wlc_if)
         case WLC_GET_MONITOR:
         {
             struct wlc_info *wlc2 = (struct wlc_info*) get_other_wlc(wlc);
-            uint32_t mon = 0;
-            wlc_ioctl_orig(wlc2, WLC_GET_MONITOR, (char *) &mon, sizeof(mon), wlc_if);
-            wlc_ioctl_orig(wlc, WLC_GET_MONITOR, arg, len, wlc_if);
-            
-            *(uint32_t *) arg |= mon;
+            uint32_t mon = wlc->monitor;
+
+            if (wlc2) {
+                mon |= wlc2->monitor;
+            }
+
+            *(uint32_t *) arg = mon & NEXMON_MONITOR_MASK;
 
             ret = IOCTL_SUCCESS;
             break;
@@ -281,17 +287,28 @@ wlc_ioctl_hook(struct wlc_info *wlc, int cmd, char *arg, int len, void *wlc_if)
         {
             unsigned short chanspec = get_chanspec(wlc);
             struct wlc_info *wlc_for_chanspec = (struct wlc_info *) find_wlc_for_chanspec(wlc, 0, chanspec, 0, 0);
-            struct wlc_info *wlc_other = (struct wlc_info*) get_other_wlc(wlc_for_chanspec);
+            struct wlc_info *wlc_other;
+            uint32_t monitor = *(uint32_t *) arg & NEXMON_MONITOR_MASK;
 
-            wlc_other->pub->tunables->copycount = 17;
-            path_to_wl_set_monitor(wlc_other, 0);
+            if (!wlc_for_chanspec) {
+                wlc_for_chanspec = wlc;
+            }
+
+            wlc_other = (struct wlc_info*) get_other_wlc(wlc_for_chanspec);
+            if (wlc_other) {
+                wlc_other->pub->tunables->copycount = 17;
+                path_to_wl_set_monitor(wlc_other, 0);
+                wlc_other->monitor = 0;
+            }
             
-            if (*(uint32_t *) arg == 0) {
+            if (monitor == 0) {
                 wlc_for_chanspec->pub->tunables->copycount = 17;
             } else {
                 wlc_for_chanspec->pub->tunables->copycount = 2;
             }
-            path_to_wl_set_monitor(wlc_for_chanspec, *(uint32_t *) arg);
+            path_to_wl_set_monitor(wlc_for_chanspec, monitor);
+            wlc_for_chanspec->monitor = monitor;
+            *(uint32_t *) arg = monitor;
 
             ret = IOCTL_SUCCESS;
 
@@ -300,16 +317,21 @@ wlc_ioctl_hook(struct wlc_info *wlc, int cmd, char *arg, int len, void *wlc_if)
 
         case WLC_SET_VAR:
         {
-#if 0
-            if (!strncmp(arg, "chanspec", 8)) {
-                set_chanspec(wlc, 0xd028);
+            if (len >= 11 && !strncmp(arg, "chanspec", 8)) {
+                unsigned short chanspec = ((unsigned char) arg[9]) |
+                    ((unsigned char) arg[10] << 8);
+                struct wlc_info *wlc_for_chanspec = (struct wlc_info *)
+                    find_wlc_for_chanspec(wlc, 0, chanspec, 0, 0);
+
+                if (!wlc_for_chanspec) {
+                    wlc_for_chanspec = wlc;
+                }
+
+                set_chanspec(wlc_for_chanspec, chanspec);
                 ret = IOCTL_SUCCESS;
             } else {
-#endif
                 ret = wlc_ioctl_orig(wlc, WLC_SET_VAR, arg, len, wlc_if);
-#if 0
             }
-#endif
             break;
         }
 
