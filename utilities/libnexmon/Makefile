@@ -8,7 +8,7 @@ libs/armeabi/libnexmon.so: Android.mk nexmon.c ../libnexio/local/armeabi/libnexi
 
 glibc: nexmon.c ../libnexio/libnexio.c
 	gcc -shared -fPIC -o libnexmon_glibc.so nexmon.c ../libnexio/libnexio.c \
-		-I../../patches/include -I../libnexio -ldl -DUSE_NETLINK
+		-I../../patches/include -I../libnexio -ldl
 
 install: libs/armeabi/libnexmon.so libs/arm64-v8a/libnexmon.so
 	adb shell 'su -c "mount -o rw,remount /system"'
