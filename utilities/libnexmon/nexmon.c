@@ -188,10 +188,7 @@ set_chanspec_channel(int channel)
     chanspec = CH20MHZ_CHSPEC(channel);
     memcpy(&buf[9], &chanspec, sizeof(chanspec));
 
-    int ret = nex_ioctl(nexio, WLC_SET_VAR, buf, sizeof(buf), true);
-    fprintf(stderr, "LIBNEXMON: set_chanspec_channel(%d) chanspec=0x%04x ret=%d\n",
-        channel, chanspec, ret);
-    return ret;
+    return nex_ioctl(nexio, WLC_SET_VAR, buf, sizeof(buf), true);
 }
 
 static int
@@ -285,15 +282,10 @@ ioctl(int fd, request_t request, ...)
                 if (!strncmp(p_wrq->ifr_ifrn.ifrn_name, ifname, strlen(ifname))) {
                     int channel = channel_from_iwfreq(&p_wrq->u.freq);
 
-                    fprintf(stderr, "LIBNEXMON: SIOCSIWFREQ channel=%d m=%d e=%d\n",
-                        channel, p_wrq->u.freq.m, p_wrq->u.freq.e);
-
                     if (channel > 0) {
                         last_channel = channel;
                         save_last_channel(channel);
-                        fprintf(stderr, "LIBNEXMON: SIOCSIWFREQ setting channel=%d\n", channel);
                         ret = set_chanspec_channel(channel);
-                        fprintf(stderr, "LIBNEXMON: SIOCSIWFREQ after set ret=%d\n", ret);
                     } else {
                         ret = -EINVAL;
                     }
@@ -311,9 +303,6 @@ ioctl(int fd, request_t request, ...)
                         channel = load_last_channel();
                     if (channel <= 0)
                         channel = get_chanspec_channel();
-
-                    fprintf(stderr, "LIBNEXMON: SIOCGIWFREQ returning channel=%d (last=%d file=%d)\n",
-                        channel, last_channel, load_last_channel());
 
                     if (channel > 0) {
                         p_wrq->u.freq.m = channel;
