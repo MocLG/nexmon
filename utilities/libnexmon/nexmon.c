@@ -88,6 +88,7 @@ typedef int request_t;
 typedef void (*sighandler_t)(int);
 
 static struct nexio *nexio = NULL;
+static int last_channel = 0;
 
 static const char *ifname = "wlan0";
 
@@ -263,10 +264,12 @@ ioctl(int fd, request_t request, ...)
                 if (!strncmp(p_wrq->ifr_ifrn.ifrn_name, ifname, strlen(ifname))) {
                     int channel = channel_from_iwfreq(&p_wrq->u.freq);
 
-                    if (channel > 0)
+                    if (channel > 0) {
+                        last_channel = channel;
                         ret = set_chanspec_channel(channel);
-                    else
+                    } else {
                         ret = -EINVAL;
+                    }
                 }
             }
             break;
@@ -276,7 +279,9 @@ ioctl(int fd, request_t request, ...)
                 struct iwreq* p_wrq = (struct iwreq*) argp;
 
                 if (!strncmp(p_wrq->ifr_ifrn.ifrn_name, ifname, strlen(ifname))) {
-                    int channel = get_chanspec_channel();
+                    int channel = last_channel;
+                    if (channel <= 0)
+                        channel = get_chanspec_channel();
 
                     if (channel > 0) {
                         p_wrq->u.freq.m = channel;
