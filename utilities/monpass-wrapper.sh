@@ -1,13 +1,14 @@
 #!/bin/bash
-# monpass-wrapper.sh — airmon-ng replacement for monpass-based monitor mode
+# monpass-wrapper.sh — enable monpass and launch wifite/aircrack tools
 #
-# Usage:
-#   source monpass-wrapper.sh          # activates wrappers in current shell
-#   monpass-wrapper.sh start [iface]   # enable monpass directly
-#   monpass-wrapper.sh stop  [iface]   # disable monpass directly
+# Sourced usage:
+#   source monpass-wrapper.sh          # enables monpass, exports LD_PRELOAD
+#   wifite -i wlan0                    # run wifite directly
 #
-# With wifite:
-#   source monpass-wrapper.sh && wifite
+# Direct usage:
+#   monpass-wrapper.sh start           # enable monpass
+#   monpass-wrapper.sh stop            # disable monpass
+#   monpass-wrapper.sh wifite          # enable monpass + run wifite -i wlan0
 
 MONPASS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 NEXUTIL="${MONPASS_DIR}/nexutil/nexutil_glibc"
@@ -19,79 +20,36 @@ sourced=0
 [ -n "$BASH_VERSION" ] && [ "${BASH_SOURCE[0]}" != "$0" ] && sourced=1
 [ -n "$ZSH_VERSION" ] && [[ "${ZSH_EVAL_CONTEXT:-}" == *:file* ]] && sourced=1
 
-airmon_start() {
-    local iface="${1:-$WLAN_IFACE}"
-    echo "Enabling monpass on $iface..."
-
-    if [ ! -x "$NEXUTIL" ]; then
-        echo "ERROR: nexutil not found at $NEXUTIL" >&2
-        return 1
-    fi
-
-    LD_PRELOAD="$LIBNEXMON" "$NEXUTIL" -M 2 || {
+monpass_start() {
+    echo "Enabling monpass on $WLAN_IFACE..."
+    LD_PRELOAD="$LIBNEXMON" "$NEXUTIL" -M 2 2>/dev/null || {
         echo "ERROR: failed to enable monpass" >&2
         return 1
     }
-
-    local status
-    status=$(LD_PRELOAD="$LIBNEXMON" "$NEXUTIL" -m 2>/dev/null)
-    echo "$status"
-
-    echo ""
-    echo "PHY	Interface	Driver		Chipset"
-    echo "phy0	$iface	bcmdhd		BCM4375B1"
+    LD_PRELOAD="$LIBNEXMON" "$NEXUTIL" -m 2>/dev/null
+    export LD_PRELOAD="$LIBNEXMON"
+    echo "monpass active — LD_PRELOAD exported"
 }
 
-airmon_stop() {
-    local iface="${1:-$WLAN_IFACE}"
-    echo "Disabling monpass on $iface..."
+monpass_stop() {
+    echo "Disabling monpass..."
     LD_PRELOAD="$LIBNEXMON" "$NEXUTIL" -M 0 2>/dev/null
     echo "done"
 }
 
-airmon_check() {
-    local iface="${1:-$WLAN_IFACE}"
-    echo "Checking for processes that may cause conflicts..."
-    ps aux 2>/dev/null | grep -E "[w]pa_supplicant|[n]etworkmanager|[d]hclient|[d]hcpcd" | awk '{print $2, $11}'
-    echo "done"
-}
-
-# Wrapper functions that auto-export LD_PRELOAD
-airodump-ng()    { LD_PRELOAD="$LIBNEXMON" command airodump-ng "$@"; }
-aireplay-ng()    { LD_PRELOAD="$LIBNEXMON" command aireplay-ng "$@"; }
-aircrack-ng()    { command aircrack-ng "$@"; }
-airdecap-ng()    { command airdecap-ng "$@"; }
-packetforge-ng() { LD_PRELOAD="$LIBNEXMON" command packetforge-ng "$@"; }
-iwconfig()       { LD_PRELOAD="$LIBNEXMON" command iwconfig "$@"; }
-iwlist()         { LD_PRELOAD="$LIBNEXMON" command iwlist "$@"; }
-iwpriv()         { LD_PRELOAD="$LIBNEXMON" command iwpriv "$@"; }
-
-airmon-ng() {
-    local cmd="$1"
-    shift 2>/dev/null
-    case "$cmd" in
-        start) airmon_start "$@" ;;
-        stop)  airmon_stop  "$@" ;;
-        check) airmon_check "$@" ;;
-        *)     echo "Usage: airmon-ng {start|stop|check} [interface]" ;;
-    esac
-}
-
 if [ "$sourced" -eq 1 ]; then
-    export LD_PRELOAD="$LIBNEXMON"
-    export NEXUTIL
-    export LIBNEXMON
-    echo "monpass-wrapper: wrappers active (airodump-ng, aireplay-ng, airmon-ng, etc.)"
+    monpass_start
+    echo "Now run: wifite -i $WLAN_IFACE"
     return 0 2>/dev/null
 fi
 
-# Direct execution
 case "${1:-}" in
-    start) airmon_start "${2:-$WLAN_IFACE}" ;;
-    stop)  airmon_stop  "${2:-$WLAN_IFACE}" ;;
-    check) airmon_check "${2:-$WLAN_IFACE}" ;;
-    "") echo "Usage: source $0 && wifite"
-        echo "       $0 start [iface]"
-        echo "       $0 stop  [iface]" ;;
-    *)  echo "Unknown command: $1" ; exit 1 ;;
+    start) monpass_start ;;
+    stop)  monpass_stop ;;
+    wifite)
+        monpass_start
+        exec command wifite -i "$WLAN_IFACE" "${@:2}"
+        ;;
+    "") echo "Usage: source $0   OR   $0 start|stop|wifite" ;;
+    *)  echo "Unknown: $1" ; exit 1 ;;
 esac
