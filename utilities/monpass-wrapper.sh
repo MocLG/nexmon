@@ -3,15 +3,21 @@
 #
 # Usage:
 #   source monpass-wrapper.sh          # activates wrappers in current shell
-#   monpass-wrapper.sh airmon-ng ...   # runs the wrapper command directly
+#   monpass-wrapper.sh start [iface]   # enable monpass directly
+#   monpass-wrapper.sh stop  [iface]   # disable monpass directly
 #
-# Or with wifite:
+# With wifite:
 #   source monpass-wrapper.sh && wifite
 
 MONPASS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 NEXUTIL="${MONPASS_DIR}/nexutil/nexutil_glibc"
 LIBNEXMON="${MONPASS_DIR}/libnexmon/libnexmon_glibc.so"
 WLAN_IFACE="wlan0"
+
+# Detect if sourced
+sourced=0
+[ -n "$BASH_VERSION" ] && [ "${BASH_SOURCE[0]}" != "$0" ] && sourced=1
+[ -n "$ZSH_VERSION" ] && [[ "${ZSH_EVAL_CONTEXT:-}" == *:file* ]] && sourced=1
 
 airmon_start() {
     local iface="${1:-$WLAN_IFACE}"
@@ -22,24 +28,18 @@ airmon_start() {
         return 1
     fi
 
-    # Enable monpass
-    LD_PRELOAD="$LIBNEXMON" "$NEXUTIL" -M 2
-    if [ $? -ne 0 ]; then
+    LD_PRELOAD="$LIBNEXMON" "$NEXUTIL" -M 2 || {
         echo "ERROR: failed to enable monpass" >&2
         return 1
-    fi
+    }
 
-    # Verify
     local status
     status=$(LD_PRELOAD="$LIBNEXMON" "$NEXUTIL" -m 2>/dev/null)
     echo "$status"
 
-    # Print output that wifite/airmon-ng expects
     echo ""
     echo "PHY	Interface	Driver		Chipset"
     echo "phy0	$iface	bcmdhd		BCM4375B1"
-    echo ""
-    echo "(monpass mode — interface name is still $iface, not wlan0mon)"
 }
 
 airmon_stop() {
@@ -52,16 +52,11 @@ airmon_stop() {
 airmon_check() {
     local iface="${1:-$WLAN_IFACE}"
     echo "Checking for processes that may cause conflicts..."
-    local procs
-    procs=$(ps aux 2>/dev/null | grep -E "[w]pa_supplicant|[n]etworkmanager|[d]hclient|[d]hcpcd" | awk '{print $2, $11}')
-    if [ -n "$procs" ]; then
-        echo "$procs"
-    else
-        echo "No conflicting processes found."
-    fi
+    ps aux 2>/dev/null | grep -E "[w]pa_supplicant|[n]etworkmanager|[d]hclient|[d]hcpcd" | awk '{print $2, $11}'
+    echo "done"
 }
 
-# Wrapper functions that export LD_PRELOAD automatically
+# Wrapper functions that auto-export LD_PRELOAD
 airodump-ng()    { LD_PRELOAD="$LIBNEXMON" command airodump-ng "$@"; }
 aireplay-ng()    { LD_PRELOAD="$LIBNEXMON" command aireplay-ng "$@"; }
 aircrack-ng()    { command aircrack-ng "$@"; }
@@ -71,7 +66,6 @@ iwconfig()       { LD_PRELOAD="$LIBNEXMON" command iwconfig "$@"; }
 iwlist()         { LD_PRELOAD="$LIBNEXMON" command iwlist "$@"; }
 iwpriv()         { LD_PRELOAD="$LIBNEXMON" command iwpriv "$@"; }
 
-# airmon-ng: handle subcommands
 airmon-ng() {
     local cmd="$1"
     shift 2>/dev/null
@@ -79,30 +73,25 @@ airmon-ng() {
         start) airmon_start "$@" ;;
         stop)  airmon_stop  "$@" ;;
         check) airmon_check "$@" ;;
-        "")    echo "Usage: airmon-ng {start|stop|check} [interface]" ;;
-        *)     echo "Unknown airmon-ng command: $cmd" ;;
+        *)     echo "Usage: airmon-ng {start|stop|check} [interface]" ;;
     esac
 }
 
-(return 0 2>/dev/null) && sourced=1 || sourced=0
-
 if [ "$sourced" -eq 1 ]; then
-    echo "monpass-wrapper: wrappers active (airodump-ng, aireplay-ng, airmon-ng, etc.)"
     export LD_PRELOAD="$LIBNEXMON"
     export NEXUTIL
     export LIBNEXMON
-else
-    case "${1:-}" in
-        start) airmon_start "${2:-$WLAN_IFACE}" ;;
-        stop)  airmon_stop  "${2:-$WLAN_IFACE}" ;;
-        check) airmon_check "${2:-$WLAN_IFACE}" ;;
-        "") echo "Usage: source $0  OR  $0 <command> [args]"
-            echo "Commands:"
-            echo "  start [iface]   Enable monpass monitor mode on interface (default: wlan0)"
-            echo "  stop  [iface]   Disable monpass monitor mode"
-            echo "  check [iface]   Check for conflicting processes"
-            echo ""
-            echo "With wifite: source $0 && wifite" ;;
-        *)  echo "Unknown command: $1" ; exit 1 ;;
-    esac
+    echo "monpass-wrapper: wrappers active (airodump-ng, aireplay-ng, airmon-ng, etc.)"
+    return 0 2>/dev/null
 fi
+
+# Direct execution
+case "${1:-}" in
+    start) airmon_start "${2:-$WLAN_IFACE}" ;;
+    stop)  airmon_stop  "${2:-$WLAN_IFACE}" ;;
+    check) airmon_check "${2:-$WLAN_IFACE}" ;;
+    "") echo "Usage: source $0 && wifite"
+        echo "       $0 start [iface]"
+        echo "       $0 stop  [iface]" ;;
+    *)  echo "Unknown command: $1" ; exit 1 ;;
+esac
