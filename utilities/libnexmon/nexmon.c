@@ -88,7 +88,25 @@ typedef int request_t;
 typedef void (*sighandler_t)(int);
 
 static struct nexio *nexio = NULL;
+static const char *last_channel_file = "/tmp/nexmon_last_channel";
 static int last_channel = 0;
+
+static void save_last_channel(int ch) {
+    FILE *f = fopen(last_channel_file, "w");
+    if (f) {
+        fprintf(f, "%d\n", ch);
+        fclose(f);
+    }
+}
+
+static int load_last_channel(void) {
+    FILE *f = fopen(last_channel_file, "r");
+    if (!f) return 0;
+    int ch = 0;
+    fscanf(f, "%d", &ch);
+    fclose(f);
+    return ch;
+}
 
 static const char *ifname = "wlan0";
 
@@ -170,7 +188,10 @@ set_chanspec_channel(int channel)
     chanspec = CH20MHZ_CHSPEC(channel);
     memcpy(&buf[9], &chanspec, sizeof(chanspec));
 
-    return nex_ioctl(nexio, WLC_SET_VAR, buf, sizeof(buf), true);
+    int ret = nex_ioctl(nexio, WLC_SET_VAR, buf, sizeof(buf), true);
+    fprintf(stderr, "LIBNEXMON: set_chanspec_channel(%d) chanspec=0x%04x ret=%d\n",
+        channel, chanspec, ret);
+    return ret;
 }
 
 static int
@@ -269,7 +290,10 @@ ioctl(int fd, request_t request, ...)
 
                     if (channel > 0) {
                         last_channel = channel;
+                        save_last_channel(channel);
+                        fprintf(stderr, "LIBNEXMON: SIOCSIWFREQ setting channel=%d\n", channel);
                         ret = set_chanspec_channel(channel);
+                        fprintf(stderr, "LIBNEXMON: SIOCSIWFREQ after set ret=%d\n", ret);
                     } else {
                         ret = -EINVAL;
                     }
@@ -284,10 +308,12 @@ ioctl(int fd, request_t request, ...)
                 if (!strncmp(p_wrq->ifr_ifrn.ifrn_name, ifname, strlen(ifname))) {
                     int channel = last_channel;
                     if (channel <= 0)
+                        channel = load_last_channel();
+                    if (channel <= 0)
                         channel = get_chanspec_channel();
 
-                    fprintf(stderr, "LIBNEXMON: SIOCGIWFREQ returning channel=%d (last=%d)\n",
-                        channel, last_channel);
+                    fprintf(stderr, "LIBNEXMON: SIOCGIWFREQ returning channel=%d (last=%d file=%d)\n",
+                        channel, last_channel, load_last_channel());
 
                     if (channel > 0) {
                         p_wrq->u.freq.m = channel;
