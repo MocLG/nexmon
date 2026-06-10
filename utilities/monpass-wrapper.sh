@@ -84,24 +84,25 @@ airmon-ng() {
     esac
 }
 
-# If sourced, export the wrappers into the current shell
-if [ "$(basename -- "$0")" != "monpass-wrapper.sh" ]; then
+(return 0 2>/dev/null) && sourced=1 || sourced=0
+
+if [ "$sourced" -eq 1 ]; then
     echo "monpass-wrapper: wrappers active (airodump-ng, aireplay-ng, airmon-ng, etc.)"
     export LD_PRELOAD="$LIBNEXMON"
     export NEXUTIL
     export LIBNEXMON
-    return 0 2>/dev/null || true
+else
+    case "${1:-}" in
+        start) airmon_start "${2:-$WLAN_IFACE}" ;;
+        stop)  airmon_stop  "${2:-$WLAN_IFACE}" ;;
+        check) airmon_check "${2:-$WLAN_IFACE}" ;;
+        "") echo "Usage: source $0  OR  $0 <command> [args]"
+            echo "Commands:"
+            echo "  start [iface]   Enable monpass monitor mode on interface (default: wlan0)"
+            echo "  stop  [iface]   Disable monpass monitor mode"
+            echo "  check [iface]   Check for conflicting processes"
+            echo ""
+            echo "With wifite: source $0 && wifite" ;;
+        *)  echo "Unknown command: $1" ; exit 1 ;;
+    esac
 fi
-
-# Executed directly — dispatch command or show usage
-case "${1:-}" in
-    start|stop|check) airmon_$1 "${2:-$WLAN_IFACE}" ;;
-    "") echo "Usage: source $0  OR  $0 <command> [args]"
-        echo "Commands:"
-        echo "  start [iface]   Enable monpass monitor mode on interface (default: wlan0)"
-        echo "  stop  [iface]   Disable monpass monitor mode"
-        echo "  check [iface]   Check for conflicting processes"
-        echo ""
-        echo "With wifite: source $0 && wifite" ;;
-    *)  echo "Unknown command: $1" ; exit 1 ;;
-esac
