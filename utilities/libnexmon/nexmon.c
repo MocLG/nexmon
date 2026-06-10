@@ -264,6 +264,9 @@ ioctl(int fd, request_t request, ...)
                 if (!strncmp(p_wrq->ifr_ifrn.ifrn_name, ifname, strlen(ifname))) {
                     int channel = channel_from_iwfreq(&p_wrq->u.freq);
 
+                    fprintf(stderr, "LIBNEXMON: SIOCSIWFREQ channel=%d m=%d e=%d\n",
+                        channel, p_wrq->u.freq.m, p_wrq->u.freq.e);
+
                     if (channel > 0) {
                         last_channel = channel;
                         ret = set_chanspec_channel(channel);
@@ -282,6 +285,9 @@ ioctl(int fd, request_t request, ...)
                     int channel = last_channel;
                     if (channel <= 0)
                         channel = get_chanspec_channel();
+
+                    fprintf(stderr, "LIBNEXMON: SIOCGIWFREQ returning channel=%d (last=%d)\n",
+                        channel, last_channel);
 
                     if (channel > 0) {
                         p_wrq->u.freq.m = channel;
