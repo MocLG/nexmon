@@ -46,6 +46,10 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <sys/socket.h>
+#ifndef __BIONIC__
+#include <net/if.h>
+#define _LINUX_IF_H
+#endif
 #include <linux/if_arp.h>
 #include <linux/sockios.h>
 #include <linux/wireless.h>
@@ -90,7 +94,7 @@ static const char *ifname = "wlan0";
 static int (*func_sendto) (int, const void *, size_t, int, const struct sockaddr *, socklen_t) = NULL;
 static int (*func_ioctl) (int, request_t, void *) = NULL;
 static int (*func_socket) (int, int, int) = NULL;
-static int (*func_bind) (int, const struct sockaddr *, int) = NULL;
+static int (*func_bind) (int, const struct sockaddr *, socklen_t) = NULL;
 static int (*func_write) (int, const void *, size_t) = NULL;
 
 static void _libmexmon_init() __attribute__ ((constructor));
@@ -104,7 +108,7 @@ static void _libmexmon_init() {
         func_socket = (int (*) (int, int, int)) dlsym (REAL_LIBC, "socket");
 
     if (! func_bind)
-        func_bind = (int (*) (int, const struct sockaddr *, int)) dlsym (REAL_LIBC, "bind");
+        func_bind = (int (*) (int, const struct sockaddr *, socklen_t)) dlsym (REAL_LIBC, "bind");
 
     if (! func_write)
         func_write = (int (*) (int, const void *, size_t)) dlsym (REAL_LIBC, "write");
@@ -409,7 +413,7 @@ socket(int domain, int type, int protocol)
 }
 
 int
-bind(int sockfd, const struct sockaddr *addr, int addrlen)
+bind(int sockfd, const struct sockaddr *addr, socklen_t addrlen)
 {
     int ret;
     struct sockaddr_ll *sll = (struct sockaddr_ll *) addr;
