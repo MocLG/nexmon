@@ -9,7 +9,7 @@
 # With wifite:
 #   source monpass-wrapper.sh && wifite
 
-MONPASS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+MONPASS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")" && pwd)"
 NEXUTIL="${MONPASS_DIR}/nexutil/nexutil_glibc"
 LIBNEXMON="${MONPASS_DIR}/libnexmon/libnexmon_glibc.so"
 WLAN_IFACE="wlan0"
