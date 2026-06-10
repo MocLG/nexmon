@@ -14,7 +14,7 @@ libs/armeabi/nexutil: Android.mk nexutil.c ../libargp/local/armeabi/libargp.a ..
 else
 glibc: nexutil.c ../libnexio/libnexio.c
 	gcc -o nexutil_glibc nexutil.c bcmwifi_channels.c b64-encode.c b64-decode.c bcmutils.c \
-		-I../../patches/include -I./include -I../libnexio -I../libargp \
+		-I./include -I../../patches/include -I../libnexio -I../libargp \
 		../libnexio/libnexio.c -DVERSION=\"glibc\" -std=gnu17
 
 nexutil: nexutil.c ../libnexio/libnexio.a FORCE
