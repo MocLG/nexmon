@@ -15,7 +15,7 @@ else
 glibc: nexutil.c ../libnexio/libnexio.c
 	gcc -o nexutil_glibc nexutil.c bcmwifi_channels.c b64-encode.c b64-decode.c bcmutils.c \
 		-I./include -I../../patches/include -I../libnexio -I../libargp \
-		../libnexio/libnexio.c -DUSE_NETLINK -DVERSION=\"glibc\" -std=gnu17
+		../libnexio/libnexio.c -DVERSION=\"glibc\" -std=gnu17
 
 nexutil: nexutil.c ../libnexio/libnexio.a FORCE
 ifeq ($(USE_VENDOR_CMD),1)
