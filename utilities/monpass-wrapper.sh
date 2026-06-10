@@ -13,18 +13,6 @@ NEXUTIL="${MONPASS_DIR}/nexutil/nexutil_glibc"
 LIBNEXMON="${MONPASS_DIR}/libnexmon/libnexmon_glibc.so"
 WLAN_IFACE="wlan0"
 
-# If no arguments, print usage
-if [ $# -eq 0 ]; then
-    echo "Usage: source $0  OR  $0 <command> [args]"
-    echo "Commands:"
-    echo "  start [iface]   Enable monpass monitor mode on interface (default: wlan0)"
-    echo "  stop  [iface]   Disable monpass monitor mode"
-    echo "  check [iface]   Check for conflicting processes"
-    echo ""
-    echo "With wifite: source $0 && wifite"
-    exit 0
-fi
-
 airmon_start() {
     local iface="${1:-$WLAN_IFACE}"
     echo "Enabling monpass on $iface..."
@@ -102,4 +90,18 @@ if [ "$(basename -- "$0")" != "monpass-wrapper.sh" ]; then
     export LD_PRELOAD="$LIBNEXMON"
     export NEXUTIL
     export LIBNEXMON
+    return 0 2>/dev/null || true
 fi
+
+# Executed directly — dispatch command or show usage
+case "${1:-}" in
+    start|stop|check) airmon_$1 "${2:-$WLAN_IFACE}" ;;
+    "") echo "Usage: source $0  OR  $0 <command> [args]"
+        echo "Commands:"
+        echo "  start [iface]   Enable monpass monitor mode on interface (default: wlan0)"
+        echo "  stop  [iface]   Disable monpass monitor mode"
+        echo "  check [iface]   Check for conflicting processes"
+        echo ""
+        echo "With wifite: source $0 && wifite" ;;
+    *)  echo "Unknown command: $1" ; exit 1 ;;
+esac
